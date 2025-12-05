@@ -19,11 +19,10 @@ Arspot Bot allows users to:
 - Each archive is tracked in your total archive count
 
 ### XP System
-- **Archive Channel**: Receive 1 XP when others react to your archived artwork
-- **Art Channel**: Receive 1 XP when others react to your images (must have image attachments)
-- XP is correctly attributed to the original artist (not the bot) for archived embeds
+- **Art Channel Only**: Receive 1 XP when others react to your images (must have image attachments)
 - Each user can only give 1 XP per message
 - Cannot earn XP from your own reactions
+- Archive channel is for viewing only - no XP from reactions there
 
 ### User Stats
 - Track total archive count per user

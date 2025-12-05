@@ -399,24 +399,7 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// Helper function to extract author ID from embed footer
-function extractAuthorFromEmbed(message) {
-  if (message.embeds && message.embeds.length > 0) {
-    const embed = message.embeds[0];
-    const footerText = embed.footer?.text || "";
-    const authorIdMatch = footerText.match(/AuthorID:(\d+)/);
-    if (authorIdMatch) {
-      const authorField = embed.fields?.find(f => f.name === "Author: ");
-      return {
-        id: authorIdMatch[1],
-        username: authorField?.value || "Unknown"
-      };
-    }
-  }
-  return null;
-}
-
-// Reaction listener for XP
+// Reaction listener for XP - only works in art channel for messages with images
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
   
@@ -443,46 +426,26 @@ client.on("messageReactionAdd", async (reaction, user) => {
   
   if (!message.guild) return;
   
-  // Check if this is an archived embed with an author ID (in archive channel)
-  const embedAuthor = extractAuthorFromEmbed(message);
+  // Only award XP in the designated art channel for messages with image attachments
+  const artChannelId = await getArtChannel(message.guild.id);
   
-  if (embedAuthor) {
-    // Security: Only award XP for embeds in the designated archive channel
-    const archiveChannelId = await getArchiveChannel(message.guild.id);
-    if (!archiveChannelId || message.channel.id !== archiveChannelId) return;
-    
-    // This is an archived embed in the archive channel - award XP to the original author
-    // Don't give XP for reacting to your own archived art
-    if (embedAuthor.id === user.id) return;
-    
-    const isNewReaction = await trackReaction(message.guild.id, message.id, embedAuthor.id, user.id);
-    
-    if (isNewReaction) {
-      await addXp(message.guild.id, embedAuthor.id, embedAuthor.username, 1);
-    }
-  } else {
-    // For regular messages, only award XP in the designated art channel
-    // and only for messages with image attachments
-    const artChannelId = await getArtChannel(message.guild.id);
-    
-    // Skip if no art channel is set or message is not in art channel
-    if (!artChannelId || message.channel.id !== artChannelId) return;
-    
-    // Check if message has an image attachment
-    const hasImageAttachment = message.attachments.some((att) =>
-      att.contentType?.startsWith("image/")
-    );
-    
-    if (!hasImageAttachment) return;
-    
-    // Don't give XP for reacting to your own message
-    if (message.author.id === user.id) return;
-    
-    const isNewReaction = await trackReaction(message.guild.id, message.id, message.author.id, user.id);
-    
-    if (isNewReaction) {
-      await addXp(message.guild.id, message.author.id, message.author.username, 1);
-    }
+  // Skip if no art channel is set or message is not in art channel
+  if (!artChannelId || message.channel.id !== artChannelId) return;
+  
+  // Check if message has an image attachment
+  const hasImageAttachment = message.attachments.some((att) =>
+    att.contentType?.startsWith("image/")
+  );
+  
+  if (!hasImageAttachment) return;
+  
+  // Don't give XP for reacting to your own message
+  if (message.author.id === user.id) return;
+  
+  const isNewReaction = await trackReaction(message.guild.id, message.id, message.author.id, user.id);
+  
+  if (isNewReaction) {
+    await addXp(message.guild.id, message.author.id, message.author.username, 1);
   }
 });
 
