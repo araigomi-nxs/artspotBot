@@ -42,7 +42,19 @@ async function initDatabase() {
   const createSettingsTable = `
     CREATE TABLE IF NOT EXISTS settings (
       guild_id VARCHAR(255) PRIMARY KEY,
-      archive_channel_id VARCHAR(255)
+      archive_channel_id VARCHAR(255),
+      art_channel_id VARCHAR(255)
+    )
+  `;
+
+  const createUserArchivesTable = `
+    CREATE TABLE IF NOT EXISTS user_archives (
+      id SERIAL PRIMARY KEY,
+      guild_id VARCHAR(255) NOT NULL,
+      user_id VARCHAR(255) NOT NULL,
+      username VARCHAR(255) NOT NULL,
+      archive_count INTEGER DEFAULT 0,
+      UNIQUE(guild_id, user_id)
     )
   `;
 
@@ -83,6 +95,9 @@ async function initDatabase() {
   await pool.query(createUserXpTable);
   await pool.query(createReactionTrackingTable);
   await pool.query(createArchiveActivityTable);
+  await pool.query(createUserArchivesTable);
+  
+  await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS art_channel_id VARCHAR(255)`);
   console.log("Database initialized.");
 }
 
@@ -166,6 +181,42 @@ async function getArchiveChannel(guildId) {
     [guildId],
   );
   return result.rows[0]?.archive_channel_id;
+}
+
+async function setArtChannel(guildId, channelId) {
+  await pool.query(
+    `INSERT INTO settings (guild_id, art_channel_id) 
+     VALUES ($1, $2) 
+     ON CONFLICT (guild_id) 
+     DO UPDATE SET art_channel_id = $2`,
+    [guildId, channelId],
+  );
+}
+
+async function getArtChannel(guildId) {
+  const result = await pool.query(
+    "SELECT art_channel_id FROM settings WHERE guild_id = $1",
+    [guildId],
+  );
+  return result.rows[0]?.art_channel_id;
+}
+
+async function incrementUserArchiveCount(guildId, userId, username) {
+  await pool.query(
+    `INSERT INTO user_archives (guild_id, user_id, username, archive_count) 
+     VALUES ($1, $2, $3, 1) 
+     ON CONFLICT (guild_id, user_id) 
+     DO UPDATE SET archive_count = user_archives.archive_count + 1, username = $3`,
+    [guildId, userId, username],
+  );
+}
+
+async function getUserArchiveCount(guildId, userId) {
+  const result = await pool.query(
+    "SELECT archive_count FROM user_archives WHERE guild_id = $1 AND user_id = $2",
+    [guildId, userId],
+  );
+  return result.rows[0]?.archive_count || 0;
 }
 
 async function addPrompt(text, username) {
@@ -333,10 +384,13 @@ client.on("messageCreate", async (message) => {
       await archiveChannel.send({ embeds: [embed] });
       await message.react("✅");
 
-      // Award 1 XP for archiving (only once per day)
+      // Track archive count
+      await incrementUserArchiveCount(message.guild.id, message.author.id, message.author.username);
+
+      // Award 5 XP for archiving (only once per day)
       const isFirstArchiveToday = await trackDailyArchive(message.guild.id, message.author.id);
       if (isFirstArchiveToday) {
-        await addXp(message.guild.id, message.author.id, message.author.username, 1);
+        await addXp(message.guild.id, message.author.id, message.author.username, 5);
       }
     } catch (error) {
       console.error("Error archiving image:", error);
@@ -389,11 +443,15 @@ client.on("messageReactionAdd", async (reaction, user) => {
   
   if (!message.guild) return;
   
-  // Check if this is an archived embed with an author ID
+  // Check if this is an archived embed with an author ID (in archive channel)
   const embedAuthor = extractAuthorFromEmbed(message);
   
   if (embedAuthor) {
-    // This is an archived embed - award XP to the original author
+    // Security: Only award XP for embeds in the designated archive channel
+    const archiveChannelId = await getArchiveChannel(message.guild.id);
+    if (!archiveChannelId || message.channel.id !== archiveChannelId) return;
+    
+    // This is an archived embed in the archive channel - award XP to the original author
     // Don't give XP for reacting to your own archived art
     if (embedAuthor.id === user.id) return;
     
@@ -403,7 +461,20 @@ client.on("messageReactionAdd", async (reaction, user) => {
       await addXp(message.guild.id, embedAuthor.id, embedAuthor.username, 1);
     }
   } else {
-    // Regular message - award XP to message author
+    // For regular messages, only award XP in the designated art channel
+    // and only for messages with image attachments
+    const artChannelId = await getArtChannel(message.guild.id);
+    
+    // Skip if no art channel is set or message is not in art channel
+    if (!artChannelId || message.channel.id !== artChannelId) return;
+    
+    // Check if message has an image attachment
+    const hasImageAttachment = message.attachments.some((att) =>
+      att.contentType?.startsWith("image/")
+    );
+    
+    if (!hasImageAttachment) return;
+    
     // Don't give XP for reacting to your own message
     if (message.author.id === user.id) return;
     
@@ -572,11 +643,38 @@ client.on("interactionCreate", async (interaction) => {
       .setTimestamp();
     
     await interaction.reply({ embeds: [embed] });
+  } else if (commandName === "setartchannel") {
+    const channel = interaction.options.getChannel("channel");
+
+    if (channel.type !== ChannelType.GuildText) {
+      return interaction.reply("Please select a text channel.");
+    }
+
+    await setArtChannel(interaction.guild.id, channel.id);
+    await interaction.reply(
+      `Art channel set to ${channel}. Reactions on images posted there will award XP to the artist.`,
+    );
+  } else if (commandName === "stats") {
+    const targetUser = interaction.options.getUser("user") || interaction.user;
+    const userXp = await getUserXp(interaction.guild.id, targetUser.id);
+    const archiveCount = await getUserArchiveCount(interaction.guild.id, targetUser.id);
+    
+    const embed = new EmbedBuilder()
+      .setTitle(`${targetUser.username}'s Stats`)
+      .setColor(0x5865f2)
+      .setThumbnail(targetUser.displayAvatarURL())
+      .addFields(
+        { name: "XP", value: `${userXp}`, inline: true },
+        { name: "Archives/Drawings", value: `${archiveCount}`, inline: true },
+      )
+      .setTimestamp();
+    
+    await interaction.reply({ embeds: [embed] });
   } else if (commandName === "help") {
     const embed = new EmbedBuilder()
-      .setTitle("Prompt Bot Commands")
+      .setTitle("Arspot Bot Commands")
       .setColor(0x5865f2)
-      .setDescription("Manage your collection of prompts")
+      .setDescription("Art archiving and XP system")
       .addFields(
         { name: "/prompt add <text>", value: "Add a new prompt to the list" },
         { name: "/prompt show", value: "Display all prompts in the list" },
@@ -590,10 +688,15 @@ client.on("interactionCreate", async (interaction) => {
           value: "Set the archive channel for images",
         },
         {
+          name: "/setartchannel <channel>",
+          value: "Set the art channel where reactions give XP",
+        },
+        {
           name: "![A]",
-          value: "Post with an image to archive it",
+          value: "Post with an image to archive it (earn 5 XP daily)",
         },
         { name: "/ranking", value: "View the XP leaderboard" },
+        { name: "/stats [user]", value: "View your or another user's stats" },
         { name: "/help", value: "Show this help message" },
       );
 

@@ -49,11 +49,29 @@ const commands = [
         .setRequired(true),
     ),
   new SlashCommandBuilder()
+    .setName("setartchannel")
+    .setDescription("Set the art channel where reactions give XP")
+    .addChannelOption((option) =>
+      option
+        .setName("channel")
+        .setDescription("The channel where art is posted and reactions give XP")
+        .setRequired(true),
+    ),
+  new SlashCommandBuilder()
     .setName("help")
     .setDescription("Show all available commands"),
   new SlashCommandBuilder()
     .setName("ranking")
     .setDescription("View the XP leaderboard"),
+  new SlashCommandBuilder()
+    .setName("stats")
+    .setDescription("View user stats including XP and archive count")
+    .addUserOption((option) =>
+      option
+        .setName("user")
+        .setDescription("The user to view stats for (defaults to yourself)")
+        .setRequired(false),
+    ),
 ].map((command) => command.toJSON());
 
 module.exports = { commands };
