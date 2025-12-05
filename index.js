@@ -1,6 +1,7 @@
 const {
   Client,
   GatewayIntentBits,
+  Partials,
   EmbedBuilder,
   REST,
   Routes,
@@ -19,6 +20,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMessageReactions,
   ],
+  partials: [Partials.Message, Partials.Reaction],
 });
 
 const pool = new Pool({
@@ -325,7 +327,7 @@ client.on("messageCreate", async (message) => {
           value: message.author.username,
           inline: true,
         })
-        .setFooter({ text: `From #${message.channel.name}` })
+        .setFooter({ text: `From #${message.channel.name} | AuthorID:${message.author.id}` })
         .setTimestamp();
 
       await archiveChannel.send({ embeds: [embed] });
@@ -343,6 +345,23 @@ client.on("messageCreate", async (message) => {
   }
 });
 
+// Helper function to extract author ID from embed footer
+function extractAuthorFromEmbed(message) {
+  if (message.embeds && message.embeds.length > 0) {
+    const embed = message.embeds[0];
+    const footerText = embed.footer?.text || "";
+    const authorIdMatch = footerText.match(/AuthorID:(\d+)/);
+    if (authorIdMatch) {
+      const authorField = embed.fields?.find(f => f.name === "Author: ");
+      return {
+        id: authorIdMatch[1],
+        username: authorField?.value || "Unknown"
+      };
+    }
+  }
+  return null;
+}
+
 // Reaction listener for XP
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
@@ -357,17 +376,42 @@ client.on("messageReactionAdd", async (reaction, user) => {
     }
   }
   
+  // Fetch partial messages if needed
   const message = reaction.message;
+  if (message.partial) {
+    try {
+      await message.fetch();
+    } catch (error) {
+      console.error("Error fetching message:", error);
+      return;
+    }
+  }
+  
   if (!message.guild) return;
   
-  // Don't give XP for reacting to your own message
-  if (message.author.id === user.id) return;
+  // Check if this is an archived embed with an author ID
+  const embedAuthor = extractAuthorFromEmbed(message);
   
-  // Track this reaction and award XP only if this is a new unique reaction
-  const isNewReaction = await trackReaction(message.guild.id, message.id, message.author.id, user.id);
-  
-  if (isNewReaction) {
-    await addXp(message.guild.id, message.author.id, message.author.username, 1);
+  if (embedAuthor) {
+    // This is an archived embed - award XP to the original author
+    // Don't give XP for reacting to your own archived art
+    if (embedAuthor.id === user.id) return;
+    
+    const isNewReaction = await trackReaction(message.guild.id, message.id, embedAuthor.id, user.id);
+    
+    if (isNewReaction) {
+      await addXp(message.guild.id, embedAuthor.id, embedAuthor.username, 1);
+    }
+  } else {
+    // Regular message - award XP to message author
+    // Don't give XP for reacting to your own message
+    if (message.author.id === user.id) return;
+    
+    const isNewReaction = await trackReaction(message.guild.id, message.id, message.author.id, user.id);
+    
+    if (isNewReaction) {
+      await addXp(message.guild.id, message.author.id, message.author.username, 1);
+    }
   }
 });
 
