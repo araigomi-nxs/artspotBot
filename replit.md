@@ -18,11 +18,10 @@ Arspot Bot allows users to:
 - Earn 1 XP for your first archive each day
 
 ### XP System
-- Receive 1 XP when others react to any message in the archive channel
-- XP goes to the message author (works for any message, not just embeds)
-- Each user can only give 1 XP per message
+- Receive 1 XP when others react to your archived artwork
+- XP is correctly attributed to the original artist (not the bot)
+- Each user can only give 1 XP per archived image
 - Cannot earn XP from your own reactions
-- Reactions in other channels do not award XP
 
 ### Prompt Management
 - `/prompt add <text>` - Add a new prompt

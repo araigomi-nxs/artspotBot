@@ -345,7 +345,7 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// Helper function to extract author ID from embed footer (for bot-posted archived art)
+// Helper function to extract author ID from embed footer
 function extractAuthorFromEmbed(message) {
   if (message.embeds && message.embeds.length > 0) {
     const embed = message.embeds[0];
@@ -362,7 +362,7 @@ function extractAuthorFromEmbed(message) {
   return null;
 }
 
-// Reaction listener for XP - only works in the archive channel
+// Reaction listener for XP
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
   
@@ -389,25 +389,29 @@ client.on("messageReactionAdd", async (reaction, user) => {
   
   if (!message.guild) return;
   
-  // Only award XP for reactions in the archive channel
-  const archiveChannelId = await getArchiveChannel(message.guild.id);
-  if (!archiveChannelId || message.channel.id !== archiveChannelId) return;
-  
-  // Determine who should receive XP
-  // For bot-posted archived embeds, extract the original author from the footer
-  // For regular messages, use the message author
+  // Check if this is an archived embed with an author ID
   const embedAuthor = extractAuthorFromEmbed(message);
-  const targetId = embedAuthor ? embedAuthor.id : message.author.id;
-  const targetUsername = embedAuthor ? embedAuthor.username : message.author.username;
   
-  // Don't give XP for reacting to your own content
-  if (targetId === user.id) return;
-  
-  // Track this reaction and award XP only if this is a new unique reaction
-  const isNewReaction = await trackReaction(message.guild.id, message.id, targetId, user.id);
-  
-  if (isNewReaction) {
-    await addXp(message.guild.id, targetId, targetUsername, 1);
+  if (embedAuthor) {
+    // This is an archived embed - award XP to the original author
+    // Don't give XP for reacting to your own archived art
+    if (embedAuthor.id === user.id) return;
+    
+    const isNewReaction = await trackReaction(message.guild.id, message.id, embedAuthor.id, user.id);
+    
+    if (isNewReaction) {
+      await addXp(message.guild.id, embedAuthor.id, embedAuthor.username, 1);
+    }
+  } else {
+    // Regular message - award XP to message author
+    // Don't give XP for reacting to your own message
+    if (message.author.id === user.id) return;
+    
+    const isNewReaction = await trackReaction(message.guild.id, message.id, message.author.id, user.id);
+    
+    if (isNewReaction) {
+      await addXp(message.guild.id, message.author.id, message.author.username, 1);
+    }
   }
 });
 
