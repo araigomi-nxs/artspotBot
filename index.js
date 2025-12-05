@@ -23,6 +23,12 @@ const client = new Client({
   partials: [Partials.Message, Partials.Reaction],
 });
 
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => res.send("Bot is running!"));
+app.listen(3000, () => console.log("Web server started"));
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
@@ -96,8 +102,10 @@ async function initDatabase() {
   await pool.query(createReactionTrackingTable);
   await pool.query(createArchiveActivityTable);
   await pool.query(createUserArchivesTable);
-  
-  await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS art_channel_id VARCHAR(255)`);
+
+  await pool.query(
+    `ALTER TABLE settings ADD COLUMN IF NOT EXISTS art_channel_id VARCHAR(255)`,
+  );
   console.log("Database initialized.");
 }
 
@@ -322,10 +330,12 @@ client.once("ready", async () => {
 
     // Register commands to each guild the bot is in (instant update)
     for (const guild of client.guilds.cache.values()) {
+      const devGuildId = "1081687296711073832";
       await rest.put(
-        Routes.applicationGuildCommands(client.user.id, guild.id),
+        Routes.applicationGuildCommands(client.user.id, devGuildId),
         { body: commands },
       );
+
       console.log(`Commands registered to guild: ${guild.name}`);
     }
 
@@ -378,19 +388,33 @@ client.on("messageCreate", async (message) => {
           value: message.author.username,
           inline: true,
         })
-        .setFooter({ text: `From #${message.channel.name} | AuthorID:${message.author.id}` })
+        .setFooter({
+          text: `From #${message.channel.name} | AuthorID:${message.author.id}`,
+        })
         .setTimestamp();
 
       await archiveChannel.send({ embeds: [embed] });
       await message.react("✅");
 
       // Track archive count
-      await incrementUserArchiveCount(message.guild.id, message.author.id, message.author.username);
+      await incrementUserArchiveCount(
+        message.guild.id,
+        message.author.id,
+        message.author.username,
+      );
 
       // Award 5 XP for archiving (only once per day)
-      const isFirstArchiveToday = await trackDailyArchive(message.guild.id, message.author.id);
+      const isFirstArchiveToday = await trackDailyArchive(
+        message.guild.id,
+        message.author.id,
+      );
       if (isFirstArchiveToday) {
-        await addXp(message.guild.id, message.author.id, message.author.username, 5);
+        await addXp(
+          message.guild.id,
+          message.author.id,
+          message.author.username,
+          5,
+        );
       }
     } catch (error) {
       console.error("Error archiving image:", error);
@@ -402,7 +426,7 @@ client.on("messageCreate", async (message) => {
 // Reaction listener for XP - only works in art channel for messages with images
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
-  
+
   // Fetch partial reactions if needed
   if (reaction.partial) {
     try {
@@ -412,7 +436,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
       return;
     }
   }
-  
+
   // Fetch partial messages if needed
   const message = reaction.message;
   if (message.partial) {
@@ -423,29 +447,39 @@ client.on("messageReactionAdd", async (reaction, user) => {
       return;
     }
   }
-  
+
   if (!message.guild) return;
-  
+
   // Only award XP in the designated art channel for messages with image attachments
   const artChannelId = await getArtChannel(message.guild.id);
-  
+
   // Skip if no art channel is set or message is not in art channel
   if (!artChannelId || message.channel.id !== artChannelId) return;
-  
+
   // Check if message has an image attachment
   const hasImageAttachment = message.attachments.some((att) =>
-    att.contentType?.startsWith("image/")
+    att.contentType?.startsWith("image/"),
   );
-  
+
   if (!hasImageAttachment) return;
-  
+
   // Don't give XP for reacting to your own message
   if (message.author.id === user.id) return;
-  
-  const isNewReaction = await trackReaction(message.guild.id, message.id, message.author.id, user.id);
-  
+
+  const isNewReaction = await trackReaction(
+    message.guild.id,
+    message.id,
+    message.author.id,
+    user.id,
+  );
+
   if (isNewReaction) {
-    await addXp(message.guild.id, message.author.id, message.author.username, 1);
+    await addXp(
+      message.guild.id,
+      message.author.id,
+      message.author.username,
+      1,
+    );
   }
 });
 
@@ -581,30 +615,39 @@ client.on("interactionCreate", async (interaction) => {
   } else if (commandName === "ranking") {
     const leaderboard = await getLeaderboard(interaction.guild.id, 10);
     const userXp = await getUserXp(interaction.guild.id, interaction.user.id);
-    
+
     if (leaderboard.length === 0) {
       const embed = new EmbedBuilder()
         .setTitle("Ranking")
         .setColor(0xffd700)
-        .setDescription("No rankings yet! Archive images or get reactions to earn XP.");
-      
+        .setDescription(
+          "No rankings yet! Archive images or get reactions to earn XP.",
+        );
+
       return interaction.reply({ embeds: [embed] });
     }
-    
+
     const rankingList = leaderboard
       .map((user, index) => {
-        const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `**${index + 1}.**`;
+        const medal =
+          index === 0
+            ? "🥇"
+            : index === 1
+              ? "🥈"
+              : index === 2
+                ? "🥉"
+                : `**${index + 1}.**`;
         return `${medal} ${user.username} - ${user.xp} XP`;
       })
       .join("\n");
-    
+
     const embed = new EmbedBuilder()
       .setTitle("Ranking Leaderboard")
       .setColor(0xffd700)
       .setDescription(rankingList)
       .setFooter({ text: `Your XP: ${userXp}` })
       .setTimestamp();
-    
+
     await interaction.reply({ embeds: [embed] });
   } else if (commandName === "setartchannel") {
     const channel = interaction.options.getChannel("channel");
@@ -620,8 +663,11 @@ client.on("interactionCreate", async (interaction) => {
   } else if (commandName === "stats") {
     const targetUser = interaction.options.getUser("user") || interaction.user;
     const userXp = await getUserXp(interaction.guild.id, targetUser.id);
-    const archiveCount = await getUserArchiveCount(interaction.guild.id, targetUser.id);
-    
+    const archiveCount = await getUserArchiveCount(
+      interaction.guild.id,
+      targetUser.id,
+    );
+
     const embed = new EmbedBuilder()
       .setTitle(`${targetUser.username}'s Stats`)
       .setColor(0x5865f2)
@@ -631,7 +677,7 @@ client.on("interactionCreate", async (interaction) => {
         { name: "Archives/Drawings", value: `${archiveCount}`, inline: true },
       )
       .setTimestamp();
-    
+
     await interaction.reply({ embeds: [embed] });
   } else if (commandName === "help") {
     const embed = new EmbedBuilder()

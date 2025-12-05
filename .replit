@@ -28,3 +28,16 @@ args = "node index.js"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "clear"
+mode = "sequential"
+author = 50832850
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node clearCommands.js"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
