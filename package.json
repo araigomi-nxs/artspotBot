@@ -8,7 +8,21 @@
   },
   "dependencies": {
     "discord.js": "^14.25.1",
+    "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "pg": "^8.16.3"
-  }
+    "pg": "^8.16.3",
+    "postgres": "^3.4.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://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@github.com/araigomi-nxs/artspotBot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/araigomi-nxs/artspotBot/issues"
+  },
+  "homepage": "https://github.com/araigomi-nxs/artspotBot#readme"
 }

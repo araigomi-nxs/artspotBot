@@ -10,6 +10,8 @@ const {
   ButtonStyle,
   ChannelType,
 } = require("discord.js");
+require('dotenv').config();
+console.log("Current DB URL:", process.env.DATABASE_URL);
 const { Pool } = require("pg");
 const { commands } = require("./commands");
 
@@ -23,6 +25,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Reaction],
 });
 
+
 const express = require("express");
 const app = express();
 
@@ -31,6 +34,7 @@ app.listen(3000, () => console.log("Web server started"));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 const ITEMS_PER_PAGE = 20;
@@ -313,9 +317,9 @@ if (!token) {
   );
   process.exit(1);
 }
-
-client.once("ready", async () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+const { Events } = require("discord.js");
+client.once(Events.ClientReady, async (c) => {
+  console.log(`Logged in as ${c.user.tag}!`);
 
   await initDatabase();
 
