@@ -6,21 +6,25 @@
   "scripts": {
     "start": "node index.js"
   },
+  "keywords": [
+    "discord",
+    "bot",
+    "prompts"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "magma-sdk": "^1.1.2",
     "pg": "^8.16.3",
-    "postgres": "^3.4.7"
+    "sharp": "^0.33.1"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://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@github.com/araigomi-nxs/artspotBot.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/araigomi-nxs/artspotBot/issues"
   },

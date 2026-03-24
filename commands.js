@@ -17,13 +17,19 @@ const commands = [
     )
     .addSubcommand((subcommand) =>
       subcommand
-        .setName("show")
-        .setDescription("Display all prompts in the list"),
+        .setName("list")
+        .setDescription("Display the prompt list"),
     )
     .addSubcommand((subcommand) =>
       subcommand
         .setName("random")
-        .setDescription("Get and remove a random prompt from the list"),
+        .setDescription("Get a random prompt from the list")
+        .addBooleanOption((option) =>
+          option
+            .setName("remove")
+            .setDescription("Remove the prompt from the list (true) or keep it (false)")
+            .setRequired(true),
+        ),
     )
     .addSubcommand((subcommand) =>
       subcommand
@@ -33,7 +39,7 @@ const commands = [
           option
             .setName("number")
             .setDescription(
-              "The prompt number to remove (use /prompt show to see numbers)",
+              "The prompt number to remove (use /prompt list to see numbers)",
             )
             .setRequired(true)
             .setMinValue(1),
@@ -169,6 +175,27 @@ const commands = [
           .setRequired(false),
       ),
   new SlashCommandBuilder()
+    .setName("modifyseeds")
+    .setDescription("Modify a user's seeds (mods only)")
+    .addUserOption((option) =>
+      option
+        .setName("user")
+        .setDescription("User whose seeds to modify")
+        .setRequired(true),
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("amount")
+        .setDescription("Positive or negative seed change")
+        .setRequired(true),
+    )
+    .addStringOption((option) =>
+      option
+        .setName("reason")
+        .setDescription("Reason for the seed change")
+        .setRequired(false),
+    ),
+  new SlashCommandBuilder()
     .setName("setannouncementchannel")
     .setDescription("Set the announcement channel for artwork of the week")
     .addChannelOption((option) =>
@@ -176,6 +203,165 @@ const commands = [
         .setName("channel")
         .setDescription("The channel for announcements")
         .setRequired(true),
+    ),
+  new SlashCommandBuilder()
+    .setName("setmodrole")
+    .setDescription("Add a moderator role for the bot (you can add multiple)")
+    .addRoleOption((option) =>
+      option
+        .setName("role")
+        .setDescription("The role that has moderator permissions")
+        .setRequired(true),
+    ),
+  new SlashCommandBuilder()
+    .setName("setpromptrole")
+    .setDescription("Set the role to ping when using /prompt random")
+    .addRoleOption((option) =>
+      option
+        .setName("role")
+        .setDescription("Role to mention for random prompts")
+        .setRequired(true),
+    ),
+  new SlashCommandBuilder()
+    .setName("settierrole")
+    .setDescription("Assign a Discord role to a tier (1-10)")
+    .addIntegerOption((option) =>
+      option
+        .setName("tier")
+        .setDescription("Tier number (1-10)")
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(10),
+    )
+    .addRoleOption((option) =>
+      option
+        .setName("role")
+        .setDescription("Role to assign for this tier")
+        .setRequired(true),
+    ),
+  new SlashCommandBuilder()
+    .setName("toggletierroles")
+    .setDescription("Enable or disable automatic tier role assignment")
+    .addBooleanOption((option) =>
+      option
+        .setName("enabled")
+        .setDescription("Enable (true) or disable (false) tier role system")
+        .setRequired(true),
+    ),
+  new SlashCommandBuilder()
+    .setName("artoftheweek")
+    .setDescription("Manually post the artwork of the week"),
+  new SlashCommandBuilder()
+    .setName("addboost")
+    .setDescription("Add an XP boost to a user")
+    .addUserOption((option) =>
+      option
+        .setName("user")
+        .setDescription("The user to give the boost to")
+        .setRequired(true),
+    )
+    .addNumberOption((option) =>
+      option
+        .setName("multiplier")
+        .setDescription("XP multiplier (e.g., 1.5 for 1.5x, 2 for 2x)")
+        .setRequired(true)
+        .setMinValue(1.0)
+        .setMaxValue(10.0),
+    )
+    .addStringOption((option) =>
+      option
+        .setName("activity")
+        .setDescription("Which activity type to boost")
+        .setRequired(true)
+        .addChoices(
+          { name: "Art posting", value: "art" },
+          { name: "Quest", value: "quest" },
+          { name: "Reactions", value: "reaction" },
+          { name: "All", value: "all" }
+        ),
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("duration_hours")
+        .setDescription("How long the boost lasts in hours")
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(8760),
+    ),
+  new SlashCommandBuilder()
+    .setName("removeboost")
+    .setDescription("Remove an XP boost from a user")
+    .addUserOption((option) =>
+      option
+        .setName("user")
+        .setDescription("The user to remove the boost from")
+        .setRequired(true),
+    )
+    .addStringOption((option) =>
+      option
+        .setName("activity")
+        .setDescription("Which activity type boost to remove")
+        .setRequired(true)
+        .addChoices(
+          { name: "Art posting", value: "art" },
+          { name: "Quest", value: "quest" },
+          { name: "Reactions", value: "reaction" },
+          { name: "All", value: "all" }
+        ),
+    ),
+  new SlashCommandBuilder()
+    .setName("shop")
+    .setDescription("View the shop or manage shop items")
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("view")
+        .setDescription("View all available shop items"),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("add")
+        .setDescription("Add a new item to the shop")
+        .addStringOption((option) =>
+          option
+            .setName("itemname")
+            .setDescription("Name of the shop item")
+            .setRequired(true),
+        )
+        .addNumberOption((option) =>
+          option
+            .setName("boost_multiplier")
+            .setDescription("XP boost multiplier (1.0-10.0)")
+            .setRequired(true)
+            .setMinValue(1.0)
+            .setMaxValue(10.0),
+        )
+        .addIntegerOption((option) =>
+          option
+            .setName("duration_hours")
+            .setDescription("How long the boost lasts in hours")
+            .setRequired(true)
+            .setMinValue(1)
+            .setMaxValue(8760),
+        )
+        .addStringOption((option) =>
+          option
+            .setName("activity")
+            .setDescription("Which activity type to boost")
+            .setRequired(true)
+            .addChoices(
+              { name: "Art posting", value: "art" },
+              { name: "Quest", value: "quest" },
+              { name: "Reactions", value: "reaction" },
+              { name: "All", value: "all" }
+            ),
+        )
+        .addIntegerOption((option) =>
+          option
+            .setName("seed_cost")
+            .setDescription("Cost in seeds")
+            .setRequired(true)
+            .setMinValue(1),
+        ),
     ),
 ].map((command) => command.toJSON());
 
